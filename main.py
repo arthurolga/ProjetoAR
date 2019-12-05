@@ -5,7 +5,7 @@ import pywavefront
 
 
 def calibrate_camera():
-    n = 10
+    n = 16
     listCorners, listIDs = [], []
     cameraMatrix, distCoeffs = None, None
     for i in range(n):
@@ -19,6 +19,35 @@ def calibrate_camera():
         print(i)
 
     return cv2.aruco.calibrateCameraCharuco(listCorners, listIDs, board, (720, 1280), cameraMatrix, distCoeffs)
+
+
+scene = pywavefront.Wavefront('teapot.obj')
+
+
+def make_3d_obj(image, scene):
+    vertices = np.array(scene.vertices)
+    vertices = vertices[:, [0, 2, 1]] + [140, 180, 50]
+
+    corners, cornerIds, rejectedImgPoints = cv2.aruco.detectMarkers(
+        image.copy(), aruco_dict)
+
+    retval, charucoCorners, charucoIds = cv2.aruco.interpolateCornersCharuco(
+        corners, cornerIds, image.copy(), board)
+
+    retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(
+        charucoCorners, charucoIds, board, cameraMatrix, distCoeffs, None, None)
+
+    points = cv2.projectPoints(
+        vertices/14, rvec, tvec, cameraMatrix, distCoeffs/4)
+
+    render = cv2.aruco.drawAxis(
+        image.copy(), cameraMatrix, distCoeffs/4, rvec, tvec, 5)
+
+    for i in points[0]:
+        if (i[0][0] < 3000 and i[0][0] < 3000 and -i[0][0] < 3000 and -i[0][0] < 3000):
+            cv2.circle(render, (int(i[0][0]), int(
+                i[0][1])), 5, (255, 0, 0), thickness=-1)
+    return render
 
 
 cap = cv2.VideoCapture(0)
@@ -105,19 +134,15 @@ while frame is not None:
 
             img_corrigida = cv2.warpPerspective(over, M, (cols, rows))
 
-            mask = img_corrigida == 0  # (255-back)
+            mask = img_corrigida == 0
             temp_frame = frame_plane.copy()
-            # (back_i & temp_frame)+img_corrigida
             frame_plane = temp_frame*mask+img_corrigida
 
-            print("Detectado")
-
-            scene = pywavefront.Wavefront('teapot.obj')
             render_img = make_3d_obj(temp_frame, scene)
 
     except Exception as e:
-        # print(e)
-        pass
+        print(e)
+        # pass
     imaxis = cv2.aruco.drawDetectedMarkers(frame_view, corners, ids)
 
     cv2.imshow('frame', render_img)
