@@ -1,15 +1,13 @@
 import os.path
 import cv2
 import numpy as np
-
-aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_50)
-board = cv2.aruco.CharucoBoard_create(5, 7, 4, 2, aruco_dict)
+import pywavefront
 
 
 def calibrate_camera():
-    cameraMatrix, distCoeffs = None, None
     n = 10
     listCorners, listIDs = [], []
+    cameraMatrix, distCoeffs = None, None
     for i in range(n):
         img = cv2.flip(cv2.imread('charuco-camera-0000{}.png'.format(i)), 1)
         frame = img.copy()
@@ -19,8 +17,16 @@ def calibrate_camera():
         listCorners.append(res[1])
         listIDs.append(res[2])
         print(i)
-        return cv2.aruco.calibrateCameraCharuco(listCorners, listIDs, board, (720, 1280), cameraMatrix, distCoeffs)
 
+    return cv2.aruco.calibrateCameraCharuco(listCorners, listIDs, board, (720, 1280), cameraMatrix, distCoeffs)
+
+
+cap = cv2.VideoCapture(0)
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH,640)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
+
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_50)
+board = cv2.aruco.CharucoBoard_create(5, 7, 4, 2, aruco_dict)
 
 #(ret, cameraMatrix, distCoeffs,rotation_vectors, translation_vectors) = cv2.aruco.calibrateCameraCharuco(listCorners,listIDs,board,(720,1280),cameraMatrix,distCoeffs)
 (ret, cameraMatrix, distCoeffs, rotation_vectors,
@@ -53,9 +59,6 @@ pts_original = np.float32(
     [[0, 0], [cols - 1, 0], [0, rows - 1], [cols - 1, rows - 1]])
 
 
-cap = cv2.VideoCapture(0)
-
-
 _, frame = cap.read()
 print(frame.shape)
 while frame is not None:
@@ -63,6 +66,7 @@ while frame is not None:
 
     frame_view = cv2.flip(frame.copy(), 1)
     frame_plane = frame_view.copy()
+    render_img = frame_view.copy()
 
     corners, ids, rejectedImgPoints = get_markers(frame_view)
 
@@ -108,11 +112,15 @@ while frame is not None:
 
             print("Detectado")
 
+            scene = pywavefront.Wavefront('teapot.obj')
+            render_img = make_3d_obj(temp_frame, scene)
+
     except Exception as e:
-        print(e)
+        # print(e)
+        pass
     imaxis = cv2.aruco.drawDetectedMarkers(frame_view, corners, ids)
 
-    cv2.imshow('frame', imaxis)
+    cv2.imshow('frame', render_img)
     cv2.imshow('frame_plane', frame_plane)
 
     k = cv2.waitKey(30) & 0xff
